@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import secrets
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, field_validator
 
 from tokped_scraper import scrape_review
+
+bearer_schema = HTTPBearer(auto_error=False)
+APP_TOKEN = os.environ.get("APP_TOKEN", "")
+
+def verif_token(cred: HTTPAuthorizationCredentials | None = Depends(bearer_schema)) -> None:
+    if cred is None or not APP_TOKEN or not secrets.compare_digest(cred.credentials, APP_TOKEN):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 class ScrapeRequest(BaseModel):
     url: str = Field(..., examples=["https://www.tokopedia.com/"])
@@ -43,7 +57,7 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/scrape", response_model=ScrapeResponse)
+@app.post("/scrape", response_model=ScrapeResponse, dependencies=[Depends(verif_token)])
 async def scrape(request: ScrapeRequest) -> ScrapeResponse:
     try:
         rvws = await asyncio.to_thread(

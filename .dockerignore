@@ -1,0 +1,22 @@
+# Venv & cache — di-build ulang di dalam image
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Rahasia — JANGAN ikut ke image (dimuat via env_file saat runtime)
+.env
+.env.*
+
+# Git & meta
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Dokumen / lain-lain
+*.md
+.venv
+.ruff_cache/
+.pytest_cache/

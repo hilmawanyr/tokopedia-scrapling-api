@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    image: tokopedia-review-scraper
+    container_name: review-scraper
+    ports:
+      - "8000:8000"
+    # Token auth (API_TOKEN) dimuat dari file .env di host saat runtime.
+    # File .env TIDAK ikut ke dalam image (lihat .dockerignore).
+    env_file:
+      - .env
+    restart: unless-stopped
