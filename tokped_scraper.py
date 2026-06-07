@@ -37,7 +37,6 @@ REVIEW_LIST_QUERY = """query productReviewList($productID: String!, $page: Int!,
 }
 """
 
-
 @dataclass
 class Product:
     id: str
@@ -61,15 +60,11 @@ class Review:
 
 def scrape_review(prod_url: str, max_rvw: int | None = None, max_pages: int = 100) -> list[Review]:
     product = Product(
-        id=get_product(prod_url),
+        id=resolve_product_url(prod_url),
         name=resolve_slug(prod_url),
         url=prod_url,
     )
     return scrape_product_review(product=product, max_reviews=max_rvw, max_pages=max_pages)
-
-
-def get_product(url: str) -> str:
-    return extract_product_id(url) or fallback_url_extractor(url)
 
 
 def resolve_slug(url: str) -> str:
@@ -78,34 +73,19 @@ def resolve_slug(url: str) -> str:
     return slug
 
 
-def extract_product_id(url: str) -> str | None:
-    if not url:
-        return None
-    slug = url.split("?")[0].rstrip("/").split("/")[-1]
-    m = re.search(r"-(\d+)$", slug)
-    return m.group(1) if m else None
+def resolve_product_url(url: str) -> str:
+    page = Fetcher.get(url, impersonate="chrome", stealthy_headers=True, timeout=30)
+    if page.status != 200:
+        raise RuntimeError(f"HTTP {page.status} saat mengambil halaman produk")
 
+    html = getattr(page, "html_content", None) or getattr(page, "body", None) or str(page)
+    if isinstance(html, bytes):
+        html = html.decode("utf-8", "ignore")
 
-def fallback_url_extractor(url: str) -> str:
-    m = re.search(r"tokopedia.\com/([^/]+)/([^/?#]+)", url)
+    m = re.search(r'productID\\?":\\?"(\d+)', html)
     if not m:
-        raise ValueError(f"Unknown product URL: {url}")
-    shop_domain, product_key = m.group(1), m.group(2)
-
-    payload = [{
-        "operationName": "PDPGetLayoutQuery",
-        "variables": {
-            "shopDomain": shop_domain,
-            "productKey": product_key
-        },
-        "query": ""
-    }]
-
-    data = _gql_call(payload, url)
-    try:
-        return str(data[0]["data"]["pdpGetLayout"]["basicInfo"]["id"])
-    except (KeyError, IndexError, TypeError) as e:
-        raise RuntimeError(f"Failed to resolve extractor. Product ID: {e}")
+        raise RuntimeError("productID tidak ditemukan di HTML halaman produk")
+    return m.group(1)
 
 
 def _gql_call(payload: list[dict], reff: str) -> Any:
@@ -135,7 +115,7 @@ def scrape_product_review(product: Product, max_reviews: int | None = None, max_
         payload = [{
             "operationName": "productReviewList",
             "variables": {
-                "productId": product.id,
+                "productID": product.id,
                 "page": page,
                 "limit": 20,
                 "sortBy": "informative_score desc",
@@ -176,7 +156,7 @@ def _parse_review(raw: dict[str, Any], prod_id: str, prod_name: str) -> Review |
     return Review(
         product_id=prod_id,
         product_name=prod_name,
-        review_id=str(raw.get("feedbackID") or raw.get("reviewID") or ""),
+        review_id=str(raw.get("id") or ""),
         rating=raw.get("productRating"),
         text=txt,
         created_at=raw.get("reviewCreateTimestamp") or raw.get("reviewCreateTime"),
