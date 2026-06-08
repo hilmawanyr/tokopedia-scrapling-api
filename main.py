@@ -25,7 +25,7 @@ def verif_token(cred: HTTPAuthorizationCredentials | None = Depends(bearer_schem
 
 class ScrapeRequest(BaseModel):
     url: str = Field(..., examples=["https://www.tokopedia.com/"])
-    max_rvw: int | None = Field(100, ge=1, le=2000, description="Maximum number of reviews to scrape")
+    total_reviews: int | None = Field(100, ge=1, le=2000, description="Maximum number of reviews to scrape")
 
     @field_validator("url")
     @classmethod
@@ -72,7 +72,7 @@ async def health() -> dict[str, str]:
 async def scrape(request: ScrapeRequest) -> ScrapeResponse:
     try:
         rvws = await asyncio.to_thread(
-            scrape_review, request.url, request.max_rvw
+            scrape_review, request.url, request.total_reviews
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
