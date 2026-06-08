@@ -6,6 +6,8 @@ import secrets
 
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel, Field, field_validator
 
 from tokped_scraper import scrape_review
@@ -50,6 +52,15 @@ class ScrapeResponse(BaseModel):
 
 
 app = FastAPI(title="Tokopedia Product Review Scraper")
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
